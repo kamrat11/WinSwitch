@@ -14,6 +14,12 @@ private func SLPSPostEventRecordTo(_ psn: UnsafeMutablePointer<ProcessSerialNumb
 @_silgen_name("GetProcessForPID")
 private func GetProcessForPID(_ pid: pid_t, _ psn: UnsafeMutablePointer<ProcessSerialNumber>) -> OSStatus
 
+@_silgen_name("CGSMainConnectionID")
+private func CGSMainConnectionID() -> Int32
+
+@_silgen_name("CGSCopySpacesForWindows")
+private func CGSCopySpacesForWindows(_ cid: Int32, _ mask: Int32, _ wids: CFArray) -> CFArray?
+
 struct WindowInfo: Equatable {
     let id: CGWindowID
     let pid: pid_t
@@ -62,8 +68,10 @@ enum Windows {
             if visible {
                 onScreen.append(info)
                 seen.insert(id)
-            } else if !title.isEmpty && !app.isHidden {
+            } else if !title.isEmpty && !app.isHidden && isOnASpace(id) {
                 // Off-screen windows include other Spaces and lots of helper windows; a title weeds most of those out.
+                // The rest are on no Space at all: the background tabs of a tabbed window (Notepad, Terminal,
+                // Finder), which have the window's title but cannot be switched to.
                 offScreen.append(info)
             }
         }
@@ -83,6 +91,12 @@ enum Windows {
         offScreen.removeAll { minimizedIds.contains($0.id) }
 
         return onScreen + offScreen + minimized
+    }
+
+    /// False for a window that is not shown on any Space (mask 7 = all Spaces), such as a background tab.
+    private static func isOnASpace(_ id: CGWindowID) -> Bool {
+        guard let spaces = CGSCopySpacesForWindows(CGSMainConnectionID(), 7, [id] as CFArray) as? [Any] else { return true }
+        return !spaces.isEmpty
     }
 
     // MARK: Focus and close
