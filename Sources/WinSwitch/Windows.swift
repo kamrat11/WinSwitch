@@ -128,17 +128,50 @@ enum Windows {
     /// the window to its own front, then the whole app is activated, which still works.
     private static func raiseWithoutAccessibility(_ window: WindowInfo) {
         if let bundleId = window.app.bundleIdentifier {
-            let target: String
-            if bundleId == "com.apple.Terminal" {
-                target = "window id \(window.id)" // Terminal's window id is the CGWindowID
-            } else {
-                let name = window.title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-                target = "(first window whose name is \"\(name)\")"
-            }
-            // Fails quietly in an app that is not scriptable; the activation below still brings the app forward.
+            let name = window.title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            let b = window.bounds
+            let bounds = "{\(Int(b.minX)), \(Int(b.minY)), \(Int(b.maxX)), \(Int(b.maxY))}"
+            // Terminal's window id is the CGWindowID. Elsewhere the window is found by its title; when several
+            // share it, the one with the same frame and the same minimized state wins. A minimized window is restored first ("miniaturized"
+            // in Cocoa apps, "minimized" in Chrome). All of it fails quietly in an app that is not scriptable.
+            let find = bundleId == "com.apple.Terminal" ? "set target to \(window.id)" : """
+            set target to missing value
+                    set best to -1
+                    repeat with w in windows
+                        if name of w is "\(name)" then
+                            set score to 0
+                            if bounds of w is \(bounds) then set score to score + 2
+                            set m to false
+                            try
+                                set m to miniaturized of w
+                            end try
+                            try
+                                set m to minimized of w
+                            end try
+                            if m is \(window.isOnScreen ? "false" : "true") then set score to score + 1
+                            if score > best then
+                                set best to score
+                                set target to id of w
+                            end if
+                        end if
+                    end repeat
+            """
+            let source = """
+            with timeout of 2 seconds
+                tell application id "\(bundleId)"
+                    \(find)
+                    try
+                        set miniaturized of window id target to false
+                    end try
+                    try
+                        set minimized of window id target to false
+                    end try
+                    set index of window id target to 1
+                end tell
+            end timeout
+            """
             var error: NSDictionary?
-            NSAppleScript(source: "with timeout of 2 seconds\ntell application id \"\(bundleId)\" to set index of \(target) to 1\nend timeout")?
-                .executeAndReturnError(&error)
+            NSAppleScript(source: source)?.executeAndReturnError(&error)
         }
         window.app.activate()
     }
