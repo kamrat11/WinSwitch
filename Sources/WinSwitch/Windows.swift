@@ -172,12 +172,15 @@ enum Windows {
                     try
                         set minimized of window id target to false
                     end try
+                    activate
                     set index of window id target to 1
                 end tell
             end timeout
             """
+            // The app activates itself before reordering: activation from here leaves its key window on top.
             var error: NSDictionary?
             NSAppleScript(source: source)?.executeAndReturnError(&error)
+            if let error { NSLog("WinSwitch: raise \(bundleId): \(error[NSAppleScript.errorMessage] ?? error)") }
         }
         window.app.activate()
     }
