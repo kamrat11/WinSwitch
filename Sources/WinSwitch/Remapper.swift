@@ -36,7 +36,8 @@ final class Remapper {
         let down = type == .keyDown
         let repeating = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
 
-        guard let bundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier else { return false }
+        // Not every app has a bundle id (the Android emulator is a bare executable); the keys work there too.
+        let bundleId = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
         // Remote desktops and VMs get every key as typed: the remote PC applies its own Windows shortcuts.
         if Settings.passthroughBundlePrefixes.contains(where: { bundleId.hasPrefix($0) }) { return false }
         let inTerminal = Self.terminals.contains { bundleId.hasPrefix($0) }
