@@ -45,6 +45,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.commitSwitcher"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.switcher.commit() }
         }
+        // focusWindow with the window id as the object switches straight to that window (for tests).
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.focusWindow"), object: nil, queue: .main) { note in
+            guard let id = (note.object as? String).flatMap({ CGWindowID($0) }) else { return }
+            MainActor.assumeIsolated {
+                if let window = Windows.list().first(where: { $0.id == id }) { Windows.focus(window) }
+            }
+        }
         // PrtSc / Alt+PrtSc without the keys: screenshotScreen and screenshotWindow.
         DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.screenshotScreen"), object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { Screenshot.screenUnderMouse() }

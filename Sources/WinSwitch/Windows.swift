@@ -131,11 +131,14 @@ enum Windows {
             let name = window.title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
             let b = window.bounds
             let bounds = "{\(Int(b.minX)), \(Int(b.minY)), \(Int(b.maxX)), \(Int(b.maxY))}"
+            // Twins (same title, frame and state) are told apart by their order: both lists run front to back.
+            let twins = list(pids: [window.pid]).filter { $0.title == window.title && $0.bounds == b && $0.isOnScreen == window.isOnScreen }
+            let rank = twins.firstIndex(of: window) ?? 0
             // Terminal's window id is the CGWindowID. Elsewhere the window is found by its title; when several
             // share it, the one with the same frame and the same minimized state wins. A minimized window is restored first ("miniaturized"
             // in Cocoa apps, "minimized" in Chrome). All of it fails quietly in an app that is not scriptable.
             let find = bundleId == "com.apple.Terminal" ? "set target to \(window.id)" : """
-            set target to missing value
+            set matches to {}
                     set best to -1
                     repeat with w in windows
                         if name of w is "\(name)" then
@@ -151,10 +154,13 @@ enum Windows {
                             if m is \(window.isOnScreen ? "false" : "true") then set score to score + 1
                             if score > best then
                                 set best to score
-                                set target to id of w
+                                set matches to {}
                             end if
+                            if score is best then set end of matches to id of w
                         end if
                     end repeat
+                    set target to item 1 of matches
+                    if (count of matches) > \(rank) then set target to item \(rank + 1) of matches
             """
             let source = """
             with timeout of 2 seconds
