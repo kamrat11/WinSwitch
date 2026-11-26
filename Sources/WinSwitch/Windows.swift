@@ -118,7 +118,29 @@ enum Windows {
         if let element {
             AXUIElementSetAttributeValue(element, kAXMainAttribute as CFString, kCFBooleanTrue)
             AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+        } else {
+            raiseWithoutAccessibility(window)
         }
+    }
+
+    /// For when the app gives no accessibility element for the window (seen system-wide after a WindowServer
+    /// crash: the window server then ignores the window id above too). The app is asked by Apple event to bring
+    /// the window to its own front, then the whole app is activated, which still works.
+    private static func raiseWithoutAccessibility(_ window: WindowInfo) {
+        if let bundleId = window.app.bundleIdentifier {
+            let target: String
+            if bundleId == "com.apple.Terminal" {
+                target = "window id \(window.id)" // Terminal's window id is the CGWindowID
+            } else {
+                let name = window.title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+                target = "(first window whose name is \"\(name)\")"
+            }
+            // Fails quietly in an app that is not scriptable; the activation below still brings the app forward.
+            var error: NSDictionary?
+            NSAppleScript(source: "with timeout of 2 seconds\ntell application id \"\(bundleId)\" to set index of \(target) to 1\nend timeout")?
+                .executeAndReturnError(&error)
+        }
+        window.app.activate()
     }
 
     /// Brings one of WinSwitch's own windows to the front with keyboard focus. NSApp.activate() is only a request
