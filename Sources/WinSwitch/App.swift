@@ -34,12 +34,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.showClipboard"), object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { ClipboardPanel.shared.toggle() }
         }
-        // Alt+Tab without holding Alt (for screenshots): showSwitcher opens it, hideSwitcher cancels it.
+        // Alt+Tab without holding Alt (for screenshots and tests): showSwitcher opens it, hideSwitcher cancels it,
+        // commitSwitcher switches to the selected window.
         DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.showSwitcher"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.switcher.open(reverse: false) }
         }
         DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.hideSwitcher"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.switcher.cancel() }
+        }
+        DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.commitSwitcher"), object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.switcher.commit() }
         }
         // PrtSc / Alt+PrtSc without the keys: screenshotScreen and screenshotWindow.
         DistributedNotificationCenter.default().addObserver(forName: .init("com.kamrat.WinSwitch.screenshotScreen"), object: nil, queue: .main) { _ in
